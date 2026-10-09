@@ -85,13 +85,27 @@ binaries:
 clean:
 	rm -rf $(SORTIE) dist
 
-# La version de golangci-lint est épinglée et partagée avec le workflow, qui la
-# reprend telle quelle. Avec @latest des deux côtés, le poste prend du retard
-# dès qu'une version sort : le lint passe en local et échoue en intégration
-# continue, sur du code que personne n'a touché. Les deux se changent ensemble.
-GOLANGCI_VERSION ?= v2.13.1
+# Les versions de golangci-lint et de gosec sont épinglées et partagées avec le
+# workflow, qui les reprend telles quelles. Avec @latest des deux côtés, le
+# poste prend du retard dès qu'une version sort : le contrôle passe en local et
+# échoue en intégration continue, sur du code que personne n'a touché. Un
+# numéro changé ici se change donc aussi dans le workflow.
+#
+# L'un comme l'autre lit les données d'export du compilateur par le
+# golang.org/x/tools qu'il embarque, et doit donc en porter une version qui
+# connaisse le format produit par le Go des runners. En deçà, chaque import de
+# chaque paquet échoue sur « export data version N is greater than maximum
+# supported », et les deux contrôles tombent sans qu'un fichier du dépôt ait
+# bougé.
+GOLANGCI_VERSION ?= v2.14.0
+
+# gosec n'a pas de release portant un x/tools qui lise les données d'export de
+# Go 1.27.2 : v2.29.0 embarque la v0.49.0, et le commit qui monte à la v0.51.0
+# n'est pas tagué. D'où ce commit plutôt qu'une version — à remplacer par la
+# release dès qu'elle sort.
+GOSEC_VERSION ?= v2.29.1-0.20261009120814-7b1b5cebe007
 
 tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@latest
-	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
