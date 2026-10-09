@@ -39,7 +39,7 @@ texte n'en nommait aucune.
 
 golangci-lint et gosec embarquaient un lecteur de données d'export que Go 1.27.2
 a périmé : le lint et l'analyse de sécurité échouaient sur chaque import de
-chaque paquet. gosec est désormais épinglé comme golangci-lint.
+chaque paquet. gosec est désormais épinglé, la version de Go ne l'est pas.
 
 ***
 
@@ -52,7 +52,7 @@ named none.
 
 golangci-lint and gosec embedded an export-data reader that Go 1.27.2 made
 obsolete: linting and security analysis failed on every import of every package.
-gosec is now pinned like golangci-lint.
+gosec is now pinned; the Go version is not.
 
 ## [0.6.3] — 2026-08-29 — La relecture du diff
 
