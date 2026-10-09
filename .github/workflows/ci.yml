@@ -67,11 +67,13 @@ jobs:
 
       # Version épinglée, la même que GOLANGCI_VERSION dans le Makefile. Avec
       # « latest », le poste de développement prend du retard dès qu'une version
-      # sort, et le lint échoue ici sur du code que personne n'a touché.
+      # sort, et le lint échoue ici sur du code que personne n'a touché. Le
+      # Makefile dit ce que cette version doit à la lecture des données
+      # d'export du compilateur.
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.1
+          version: v2.14.0
 
   securite:
     name: Sécurité
@@ -89,9 +91,11 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           make vulncheck
 
+      # Version épinglée elle aussi, la même que GOSEC_VERSION dans le
+      # Makefile, et pour la même raison que golangci-lint.
       - name: Analyse statique de sécurité
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.29.1-0.20261009120814-7b1b5cebe007
           make sec
 
   # Ce que le poste de développement ne peut pas vérifier : que le code se

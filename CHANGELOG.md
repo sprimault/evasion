@@ -30,27 +30,29 @@ publié, et explique les conventions du dépôt à qui y contribue.
 
 ## [Non publié]
 
-Le jeu s'appelle désormais Evasion. Le dépôt, le module Go, le binaire et ses
-sous-commandes changent de nom, et l'`$id` des schémas de `schemas/` suit.
-Aucun numéro de contrat ne bouge : un plugin ou un bot écrit contre la version
-précédente reste valide, l'`$id` d'un schéma étant un identifiant et non une
-adresse à télécharger. L'ancien nom de dépôt redirige.
+Le jeu s'appelle désormais Evasion. Aucun numéro de contrat ne bouge, donc rien
+à reprendre dans un plugin ni dans un bot ; l'ancien nom de dépôt redirige.
 
 L'accroche du dépôt et des README dit désormais ce que le fugitif cherche, là
 où elle n'annonçait qu'une poursuite : le nouveau nom promet une sortie, et le
 texte n'en nommait aucune.
 
+golangci-lint et gosec embarquaient un lecteur de données d'export que Go 1.27.2
+a périmé : le lint et l'analyse de sécurité échouaient sur chaque import de
+chaque paquet. gosec est désormais épinglé comme golangci-lint.
+
 ***
 
-The game is now called Evasion. The repository, the Go module, the binary and
-its subcommands are renamed, and the `$id` of the schemas under `schemas/`
-follows. No contract number changes: a plugin or bot written against the
-previous release stays valid, since a schema's `$id` is an identifier rather
-than a download address. The old repository name redirects.
+The game is now called Evasion. No contract number changes, so nothing to
+revisit in a plugin or a bot; the old repository name redirects.
 
 The repository and README taglines now say what the fugitive is after, where
 they only announced a chase: the new name promises a way out, and the text
 named none.
+
+golangci-lint and gosec embedded an export-data reader that Go 1.27.2 made
+obsolete: linting and security analysis failed on every import of every package.
+gosec is now pinned like golangci-lint.
 
 ## [0.6.3] — 2026-08-29 — La relecture du diff
 
