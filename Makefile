@@ -97,6 +97,14 @@ clean:
 # chaque paquet échoue sur « export data version N is greater than maximum
 # supported », et les deux contrôles tombent sans qu'un fichier du dépôt ait
 # bougé.
+#
+# La ligne de Go ne se borne pas pour autant, et c'est tranché. L'épingler
+# priverait le binaire des correctifs du runtime, et fausserait govulncheck, qui
+# évalue ses avis contre la bibliothèque standard du toolchain : c'est
+# l'outillage qui suit Go, jamais l'inverse. Retirer check-latest du workflow
+# n'y changerait rien non plus — quand l'image des runners ne porte pas la ligne
+# que go.mod demande, setup-go va chercher la plus haute de cette ligne de toute
+# façon.
 GOLANGCI_VERSION ?= v2.14.0
 
 # gosec n'a pas de release portant un x/tools qui lise les données d'export de
