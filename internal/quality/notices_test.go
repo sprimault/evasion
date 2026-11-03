@@ -37,6 +37,11 @@ comprise.
 Ce fichier est généré depuis les dépendances réellement liées au binaire :
 « make notices ». Ne pas le modifier à la main.
 
+Chaque entrée porte son identifiant SPDX, reconnu au texte de la licence et non
+déclaré à la main. Un module offert sous plusieurs licences au choix n'engage
+qu'à l'une d'elles, et la ligne de déclaration dit donc laquelle est exercée :
+c'est Apache-2.0, celle du dépôt.
+
 `
 
 // TestThirdPartyNoticesAreCurrent vérifie que les notices livrées couvrent
@@ -82,12 +87,12 @@ func notices() (string, error) {
 	b.WriteString(enTeteNotices)
 
 	for _, m := range modules {
-		texte, err := licenceDe(m.dossier)
+		texte, jeton, err := licenceDe(m.dossier)
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", m.chemin, err)
 		}
-		fmt.Fprintf(&b, "-------------------------------------------------------------------------------\n%s %s\n%s\n\n%s\n",
-			m.chemin, m.version, m.origine, strings.TrimRight(texte, "\n"))
+		fmt.Fprintf(&b, "-------------------------------------------------------------------------------\n%s %s — %s\n%s\n\n%s\n",
+			m.chemin, m.version, jeton, m.origine, strings.TrimRight(texte, "\n"))
 	}
 	return b.String(), nil
 }
@@ -225,21 +230,285 @@ func TestNoticeTargetsMatchTheWorkflow(t *testing.T) {
 	}
 }
 
-// licenceDe lit le fichier de licence d'un module.
+// licenceExercee est la licence retenue quand un module en offre plusieurs au
+// choix.
 //
-// Les noms varient d'un projet à l'autre — COPYING chez BurntSushi, LICENSE
-// ailleurs, parfois avec une extension. Ne pas en trouver est une erreur et non
-// un cas à ignorer : une dépendance sans licence lisible ne peut pas être
-// redistribuée en confiance.
-func licenceDe(dossier string) (string, error) {
-	for _, nom := range []string{
-		"LICENSE", "LICENSE.txt", "LICENSE.md",
-		"COPYING", "COPYING.txt",
-		"LICENCE", "LICENCE.txt",
-	} {
-		if brut, err := os.ReadFile(filepath.Join(dossier, nom)); err == nil {
-			return string(brut), nil
+// Celle du dépôt, pour que tout ce qu'une archive porte relève d'un seul régime.
+// Le choix appartient à qui redistribue, et les licences d'une double offre ne
+// se cumulent pas : en exercer une suffit, en recopier deux sans dire laquelle
+// laisse le lecteur décider à notre place.
+const licenceExercee = "Apache-2.0"
+
+// nomsLicence est la liste close des noms de fichier de licence reconnus.
+//
+// Close et non un motif « LICENSE* » : un module peut poser à côté de sa licence
+// un fichier qui n'en est pas une — les notices de ses propres dépendances, par
+// exemple —, et un motif le ramasserait comme s'il engageait le module.
+var nomsLicence = []string{
+	"LICENSE", "LICENSE.txt", "LICENSE.md",
+	"COPYING", "COPYING.txt",
+	"LICENCE", "LICENCE.txt",
+	"LICENSE-APACHE", "LICENSE-APACHE.txt",
+	"LICENSE-MIT", "LICENSE-MIT.txt",
+}
+
+// licenceConnue associe un identifiant SPDX aux fragments qui le reconnaissent.
+type licenceConnue struct {
+	jeton     string
+	marqueurs []string
+}
+
+// licencesConnues reconnaît une licence à son texte.
+//
+// Une tranche et non une table : le parcours d'une map n'a pas d'ordre stable, et
+// ce qui décide d'un jeton ne passe jamais par là.
+//
+// Deux fragments par licence, parce qu'un seul ne suffit pas — « Apache License »
+// figure dans l'appendice de tout fichier qui explique comment l'appliquer, et
+// mentionner une licence n'est pas en être une. Les deux retenus sont ceux que le
+// corps normatif porte et qu'un en-tête ne porte pas : « The MIT License (MIT) »
+// et « MIT License » coexistent chez deux de nos dépendances, donc l'en-tête ne
+// reconnaît rien.
+//
+// La table ne couvre que ce que le binaire lie. C'est voulu : un texte inconnu
+// arrête le contrôle au lieu d'être deviné, et un jeton faux serait pire que pas
+// de jeton puisqu'il affirmerait un régime que personne n'a vérifié.
+var licencesConnues = []licenceConnue{
+	{"Apache-2.0", []string{"Apache License", "Version 2.0, January 2004"}},
+	{"MIT", []string{"Permission is hereby granted, free of charge", `THE SOFTWARE IS PROVIDED "AS IS"`}},
+}
+
+// licenceDe rend le texte de licence d'un module et son identifiant SPDX.
+//
+// Ne pas en trouver est une erreur et non un cas à ignorer : une dépendance sans
+// licence lisible ne peut pas être redistribuée en confiance.
+//
+// **Un module qui en offre plusieurs au choix est le cas qui demande une
+// décision**, et c'est [licenceExercee] qui la porte. Si ce qu'il offre ne la
+// comprend pas, l'erreur nomme ce qu'il propose : choisir à la place de
+// l'intégrateur engagerait la redistribution sur un régime que rien n'aurait
+// arbitré.
+func licenceDe(dossier string) (texte, jeton string, err error) {
+	offertes := map[string]string{}
+	for _, nom := range nomsLicence {
+		brut, err := os.ReadFile(filepath.Join(dossier, nom))
+		if err != nil {
+			continue
+		}
+		j, err := jetonSPDX(string(brut))
+		if err != nil {
+			return "", "", fmt.Errorf("%s : %w", nom, err)
+		}
+		offertes[j] = string(brut)
+	}
+
+	switch {
+	case len(offertes) == 0:
+		return "", "", fmt.Errorf("aucun fichier de licence dans %s", dossier)
+	case len(offertes) == 1:
+		for j, t := range offertes {
+			return t, j, nil
 		}
 	}
-	return "", fmt.Errorf("aucun fichier de licence dans %s", dossier)
+
+	if t, ok := offertes[licenceExercee]; ok {
+		return t, licenceExercee, nil
+	}
+
+	jetons := make([]string, 0, len(offertes))
+	for j := range offertes {
+		jetons = append(jetons, j)
+	}
+	sort.Strings(jetons)
+	return "", "", fmt.Errorf("offert sous %s, et aucune n'est %s : choisir laquelle est exercée",
+		strings.Join(jetons, " ou "), licenceExercee)
+}
+
+// extraitApache et extraitMIT portent les fragments normatifs que la
+// reconnaissance exige, sans recopier deux licences entières dans un test.
+const (
+	extraitApache = "                                 Apache License\n" +
+		"                           Version 2.0, January 2004\n"
+	extraitMIT = "MIT License\n\nPermission is hereby granted, free of charge, to any person " +
+		"obtaining a copy\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND\n"
+)
+
+// TestLicenceDeExercesTheRepositoryLicence garde le cas qui a fait échouer la
+// génération : un module offert sous deux licences au choix.
+//
+// Le cas sans Apache-2.0 compte autant que celui avec. Retenir la seule restante
+// paraîtrait serviable et engagerait la redistribution sur un régime que
+// personne n'aurait arbitré — c'est précisément ce que l'erreur refuse.
+func TestLicenceDeExercesTheRepositoryLicence(t *testing.T) {
+	cas := []struct {
+		nom      string
+		fichiers map[string]string
+		jeton    string
+		erreur   string
+	}{
+		{
+			nom:      "double offre",
+			fichiers: map[string]string{"LICENSE-APACHE": extraitApache, "LICENSE-MIT": extraitMIT},
+			jeton:    "Apache-2.0",
+		},
+		{
+			nom:      "licence unique, même si ce n'est pas celle du dépôt",
+			fichiers: map[string]string{"COPYING": extraitMIT},
+			jeton:    "MIT",
+		},
+		{
+			nom:      "fichier de licence illisible par la table",
+			fichiers: map[string]string{"LICENSE": "Copyright 2026. Tous droits réservés."},
+			erreur:   "licence non reconnue",
+		},
+		{
+			nom:      "aucun fichier de licence",
+			fichiers: map[string]string{"README.md": "rien ici"},
+			erreur:   "aucun fichier de licence",
+		},
+	}
+
+	for _, c := range cas {
+		t.Run(c.nom, func(t *testing.T) {
+			dossier := t.TempDir()
+			for nom, contenu := range c.fichiers {
+				if err := os.WriteFile(filepath.Join(dossier, nom), []byte(contenu), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			_, jeton, err := licenceDe(dossier)
+			if c.erreur != "" {
+				if err == nil {
+					t.Fatalf("jeton %q rendu, attendu une erreur portant %q", jeton, c.erreur)
+				}
+				if !strings.Contains(err.Error(), c.erreur) {
+					t.Errorf("erreur %q, attendu qu'elle porte %q", err, c.erreur)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if jeton != c.jeton {
+				t.Errorf("jeton %q, attendu %q", jeton, c.jeton)
+			}
+		})
+	}
+}
+
+// TestLicenceDeRefusesToChooseWithoutTheExercisedOne garde le refus de choisir
+// quand une double offre ne comprend pas la licence du dépôt.
+//
+// **La table est substituée, et c'est la seule façon d'atteindre ce cas** :
+// elle ne connaît que les licences du binaire, donc deux offres y comprennent
+// toujours Apache-2.0 et la branche ne se déclenche jamais en l'état. La laisser
+// sans test en ferait du code non gardé, qui s'ouvrirait en silence le jour où
+// une troisième licence y entrera — et c'est précisément ce jour-là qu'un
+// arbitraire se glisserait dans une notice.
+func TestLicenceDeRefusesToChooseWithoutTheExercisedOne(t *testing.T) {
+	const extraitISC = "Permission to use, copy, modify, and/or distribute this software\n\n" +
+		"THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE\n"
+
+	originale := licencesConnues
+	t.Cleanup(func() { licencesConnues = originale })
+	licencesConnues = []licenceConnue{
+		{"MIT", []string{"Permission is hereby granted, free of charge", `THE SOFTWARE IS PROVIDED "AS IS"`}},
+		{"ISC", []string{"Permission to use, copy, modify, and/or distribute", "WITH REGARD TO THIS SOFTWARE"}},
+	}
+
+	dossier := t.TempDir()
+	for nom, contenu := range map[string]string{"LICENSE-MIT": extraitMIT, "LICENCE": extraitISC} {
+		if err := os.WriteFile(filepath.Join(dossier, nom), []byte(contenu), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, jeton, err := licenceDe(dossier)
+	if err == nil {
+		t.Fatalf("jeton %q retenu alors qu'aucune offre n'est %s", jeton, licenceExercee)
+	}
+	for _, attendu := range []string{"ISC ou MIT", licenceExercee} {
+		if !strings.Contains(err.Error(), attendu) {
+			t.Errorf("erreur %q, attendu qu'elle porte %q", err, attendu)
+		}
+	}
+}
+
+// TestSPDXTokenRefusesWhatItCannotName vérifie que la reconnaissance échoue
+// franchement plutôt que de rendre un jeton par défaut.
+//
+// C'est la propriété qui donne sa valeur au fichier : un identifiant SPDX écrit
+// dans une notice affirme un régime juridique, et l'affirmer de travers est pire
+// que ne rien affirmer.
+func TestSPDXTokenRefusesWhatItCannotName(t *testing.T) {
+	if _, err := jetonSPDX("Copyright 2026. Tous droits réservés."); err == nil {
+		t.Error("un texte qui n'est aucune licence connue reçoit un jeton")
+	}
+	if _, err := jetonSPDX(extraitApache + extraitMIT); err == nil {
+		t.Error("un texte reconnu deux fois reçoit un jeton au lieu d'arrêter le contrôle")
+	}
+}
+
+// TestEveryLinkedModuleIsNamedInTheNotices vérifie que chaque module lié porte
+// son identifiant SPDX dans le fichier livré.
+//
+// Le test voisin compare le fichier à ce que la génération produit, donc il
+// rougirait aussi. Celui-ci dit *quoi* est faux : une entrée sans jeton est une
+// notice qui ne nomme pas le régime qu'elle impose au redistributeur.
+func TestEveryLinkedModuleIsNamedInTheNotices(t *testing.T) {
+	brut, err := os.ReadFile(cheminNotices)
+	if err != nil {
+		t.Fatalf("%v — lancer « make notices »", err)
+	}
+
+	modules, err := modulesLies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(modules) == 0 {
+		t.Fatal("aucun module lié : le contrôle ne dirait rien")
+	}
+
+	for _, m := range modules {
+		_, jeton, err := licenceDe(m.dossier)
+		if err != nil {
+			t.Fatalf("%s : %v", m.chemin, err)
+		}
+		attendu := fmt.Sprintf("%s %s — %s", m.chemin, m.version, jeton)
+		if !strings.Contains(string(brut), attendu) {
+			t.Errorf("les notices ne portent pas %q", attendu)
+		}
+	}
+}
+
+// jetonSPDX reconnaît une licence à son texte.
+//
+// Une correspondance et une seule : zéro dit que la table ne connaît pas ce
+// texte, plusieurs qu'elle ne discrimine plus, et les deux doivent arrêter le
+// contrôle plutôt que rendre le premier jeton venu.
+func jetonSPDX(texte string) (string, error) {
+	var trouves []string
+	for _, l := range licencesConnues {
+		reconnu := true
+		for _, m := range l.marqueurs {
+			if !strings.Contains(texte, m) {
+				reconnu = false
+				break
+			}
+		}
+		if reconnu {
+			trouves = append(trouves, l.jeton)
+		}
+	}
+
+	switch len(trouves) {
+	case 1:
+		return trouves[0], nil
+	case 0:
+		return "", fmt.Errorf("licence non reconnue : ajouter ses marqueurs à licencesConnues")
+	default:
+		return "", fmt.Errorf("texte reconnu comme %s à la fois : les marqueurs ne discriminent plus",
+			strings.Join(trouves, " et "))
+	}
 }
