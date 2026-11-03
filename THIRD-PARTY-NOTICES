@@ -8,8 +8,13 @@ comprise.
 Ce fichier est généré depuis les dépendances réellement liées au binaire :
 « make notices ». Ne pas le modifier à la main.
 
+Chaque entrée porte son identifiant SPDX, reconnu au texte de la licence et non
+déclaré à la main. Un module offert sous plusieurs licences au choix n'engage
+qu'à l'une d'elles, et la ligne de déclaration dit donc laquelle est exercée :
+c'est Apache-2.0, celle du dépôt.
+
 -------------------------------------------------------------------------------
-github.com/BurntSushi/toml v1.6.0
+github.com/BurntSushi/toml v1.6.0 — MIT
 https://github.com/BurntSushi/toml
 
 The MIT License (MIT)
