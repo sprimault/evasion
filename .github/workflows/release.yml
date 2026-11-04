@@ -5,7 +5,11 @@
 #
 # Une seule machine ne produit pas toutes les cibles, contrairement aux autres
 # projets : Ebitengine ne se compile en croisé que vers Windows et WebAssembly,
-# Linux et macOS exigent du natif. D'où la matrice multi-runners.
+# et Linux exige du natif. D'où la matrice multi-runners.
+#
+# macOS n'est plus publiée : aucun runner hébergé n'acquiert ses jobs, donc la
+# cible n'est ni compilée ni testée, et une archive que rien ne vérifie ne se
+# publie pas.
 #
 # Trois choses ne peuvent pas se faire cible par cible et vont dans le job de
 # rassemblement : SHA256SUMS calculé en un seul endroit sur toutes les archives,
@@ -45,10 +49,6 @@ jobs:
           - { os: js, arch: wasm, cgo: 0, runner: ubuntu-latest, ext: .wasm, publier: false }
           - { os: linux, arch: amd64, cgo: 1, runner: ubuntu-latest, ext: "", publier: true }
           - { os: linux, arch: arm64, cgo: 1, runner: ubuntu-24.04-arm, ext: "", publier: true }
-          - { os: darwin, arch: arm64, cgo: 1, runner: macos-latest, ext: "", publier: true }
-          # macos-15-intel est la dernière image x86_64 des runners, annoncée
-          # jusqu'en août 2027. Cette ligne a une date de péremption connue.
-          - { os: darwin, arch: amd64, cgo: 1, runner: macos-15-intel, ext: "", publier: true }
     steps:
       - uses: actions/checkout@v7
 

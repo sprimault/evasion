@@ -100,7 +100,8 @@ jobs:
 
   # Ce que le poste de développement ne peut pas vérifier : que le code se
   # construit encore pour les cibles de la matrice. Sans ce job, une rupture de
-  # compilation sur macOS ou arm64 n'apparaîtrait qu'au moment de publier.
+  # compilation sur arm64 ou en WebAssembly n'apparaîtrait qu'au moment de
+  # publier.
   cibles:
     name: Compilation ${{ matrix.os }}/${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
@@ -112,8 +113,6 @@ jobs:
           - { os: js, arch: wasm, cgo: 0, runner: ubuntu-latest }
           - { os: linux, arch: amd64, cgo: 1, runner: ubuntu-latest }
           - { os: linux, arch: arm64, cgo: 1, runner: ubuntu-24.04-arm }
-          - { os: darwin, arch: arm64, cgo: 1, runner: macos-latest }
-          - { os: darwin, arch: amd64, cgo: 1, runner: macos-15-intel }
     steps:
       - uses: actions/checkout@v7
 
@@ -135,9 +134,12 @@ jobs:
   # plateau et la même suite de tirages quel que soit le système.
   #
   # Linux/amd64 est absent de la matrice parce que le job Contrôles est déjà
-  # dessus, et darwin/amd64 aussi : même système que darwin/arm64, pour du code
-  # sans flottant ni dépendance à la taille d'un mot, il ne prouverait rien de
-  # plus qu'un quatrième runner à faire tourner.
+  # dessus.
+  #
+  # macOS n'y est plus : aucun runner hébergé n'acquiert ses jobs, qui attendent
+  # un quart d'heure avant d'être annulés — « not acquired by Runner of type
+  # hosted even after multiple attempts ». Un contrôle qui ne rend jamais bloque
+  # la fusion sans rien prouver.
   natifs:
     name: Tests ${{ matrix.os }}/${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
@@ -146,7 +148,6 @@ jobs:
       matrix:
         include:
           - { os: windows, arch: amd64, runner: windows-latest }
-          - { os: darwin, arch: arm64, runner: macos-latest }
           - { os: linux, arch: arm64, runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v7

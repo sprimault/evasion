@@ -9,9 +9,8 @@ découle.
 ## La matrice
 
 **Une seule machine ne produit pas toutes les cibles.** Ebitengine ne se compile
-en croisé que vers Windows et WebAssembly ; Linux et macOS exigent une
-compilation native, parce que le moteur y passe par les API graphiques du
-système.
+en croisé que vers Windows et WebAssembly ; Linux exige une compilation native,
+parce que le moteur y passe par les API graphiques du système.
 
 | Cible | Où | cgo | Publiée |
 |---|---|---|---|
@@ -19,8 +18,16 @@ système.
 | js/wasm | Linux, croisé | `0` | **non** |
 | linux/amd64 | Linux, natif | `1` | oui |
 | linux/arm64 | Linux ARM, natif | `1` | oui |
-| darwin/arm64 | macOS Apple Silicon, natif | `1` | oui |
-| darwin/amd64 | macOS Intel, natif | `1` | oui |
+
+**macOS n'est plus une cible.** Aucun runner hébergé n'acquiert ses jobs : ils
+attendent un quart d'heure, puis sont annulés sur « not acquired by Runner of
+type hosted even after multiple attempts ». La cible n'est donc ni compilée ni
+testée, et un binaire que rien ne vérifie ne se publie pas — pire, un contrôle
+qui ne rend jamais bloque la fusion de tout le reste.
+
+Le noyau reste portable, et rien dans le code ne suppose un système : c'est la
+**publication** qui s'arrête, pas le support. Une cible macOS redevient une ligne
+de matrice le jour où un runner la prend.
 
 **`js/wasm` se compile sans être publiée**, et ce n'est pas un oubli. L'archive
 serait inutilisable seule — il y faudrait `wasm_exec.js` et une page HTML — et le
@@ -34,17 +41,14 @@ cgo lui aussi, attrape la même chose. Elle a d'autres raisons d'y être : la
 surface d'API de `js` et l'absence d'appels système y sont vérifiées, et nulle
 part ailleurs.
 
-La cible Intel a une date de péremption connue : l'image correspondante est
-annoncée comme la dernière x86_64 disponible en intégration continue, jusqu'en
-août 2027.
-
 ## cgo n'est pas uniforme
 
 C'est la particularité du projet, et elle se contourne sans bruit : rien
 n'avertit qu'on vient de la perdre.
 
-Le mettre à `0` sur darwin ne produit pas une erreur claire mais un échec de
-linkage obscur. À poser en variable de matrice, jamais en valeur globale.
+Une valeur globale est donc proscrite : `cgo` est une variable de matrice, et un
+`0` posé là où le moteur attend les API du système ne produit pas une erreur
+claire mais un échec de linkage obscur.
 
 Conséquence à connaître : le binaire Linux est lié à la glibc. Il n'y a pas de
 construction statique musl, donc pas d'image `scratch` possible — sans
@@ -104,7 +108,7 @@ réelles à chaque exécution de la suite et échoue quand il vieillit, faute de
 une bibliothèque ajoutée entrerait dans les archives sans sa notice, et personne
 ne s'en apercevrait.
 
-**Il porte l'union des six cibles de la matrice, pas ce que lie la machine qui le
+**Il porte l'union des cibles de la matrice, pas ce que lie la machine qui le
 produit.** Le jeu de modules dépend du système — un pilote de fenêtre n'existe
 que sur Linux, un paquet système disparaît sur WebAssembly. Un fichier par cible
 serait plus juste au sens strict ; l'union est retenue parce qu'un lecteur reçoit
