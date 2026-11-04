@@ -160,8 +160,9 @@ Ebitengine. Un seul langage du noyau au pixel, pas de webview, pas de bundle
 JavaScript, et les cibles web, Android et iOS depuis le même code.
 
 Le prix, à connaître : la compilation croisée ne fonctionne que vers Windows et
-WebAssembly. Les cibles Linux et macOS se construisent en natif, sur des runners
-d'intégration continue. Voir [`construction.md`](construction.md).
+WebAssembly. La cible Linux se construit en natif, sur des runners d'intégration
+continue, et macOS n'est plus publiée faute de runner qui la prenne. Voir
+[`construction.md`](construction.md).
 
 Deux vues **affichées ensemble**, l'isométrique et la carte à plat à côté
 d'elle. Ce n'est pas un basculement : chacune fait ce que l'autre ne sait pas

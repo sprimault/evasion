@@ -121,8 +121,6 @@ var ciblesPubliees = []cible{
 	{"js", "wasm", "0"},
 	{"linux", "amd64", "1"},
 	{"linux", "arm64", "1"},
-	{"darwin", "arm64", "1"},
-	{"darwin", "amd64", "1"},
 }
 
 // modulesLies interroge le compilateur plutôt que go.mod, pour chaque cible
@@ -141,7 +139,7 @@ var ciblesPubliees = []cible{
 // tenir.
 //
 // Rien ne peut encore l'éprouver : la seule dépendance du binaire est en Go pur
-// et rend la même liste sur les six cibles. C'est la dépendance suivante qui
+// et rend la même liste sur les quatre cibles. C'est la dépendance suivante qui
 // fera la différence, et c'est pour elle que le mécanisme est posé maintenant.
 func modulesLies() ([]module, error) {
 	vus := map[string]module{}

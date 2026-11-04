@@ -60,10 +60,11 @@ module, ou quand `make deps` montre un écart qui vaut le geste.
 |---|---|
 | windows/amd64 | `0` — Ebitengine y est en Go pur |
 | js/wasm | `0` |
-| linux, darwin | `1` — Ebitengine y passe par les API système |
+| linux | `1` — Ebitengine y passe par les API système |
 
-Le mettre à `0` sur darwin ne produit pas une erreur claire mais un échec de
-liaison obscur. C'est une variable de matrice, jamais une valeur globale.
+Un `0` posé là où le moteur attend ces API ne produit pas une erreur claire mais
+un échec de liaison obscur. C'est une variable de matrice, jamais une valeur
+globale.
 
 Conséquence à connaître : le binaire Linux est lié à la glibc, il n'y a pas de
 construction statique. Sans importance pour un jeu de bureau, mais ça interdit
