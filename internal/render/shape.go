@@ -299,7 +299,11 @@ const RimColor = "#e8e2d4"
 // épaisseur de trait, elle est encadrée par StrokeWidth.
 const RimWidth = 2
 
-// Le panneau de la carte à plat, en pixels d'écran.
+// Le panneau de la carte à plat, en pixels de surface.
+//
+// L'unité compte : la carte est peinte dans la planche que le rendu agrandit
+// ensuite d'un facteur entier, donc ces bornes sont celles où elle est peinte.
+// À l'écran, tout est multiplié par le même facteur et le rapport ne bouge pas.
 //
 // Une part de la largeur, bornée des deux côtés : trop étroit, le plus grand
 // préréglage n'a plus assez de pixels par case pour qu'on y suive un itinéraire ;
@@ -355,13 +359,16 @@ func Lit(hexa string, face int) string {
 // contour, celui d'un plugin comme le liseré du moteur.
 //
 // Les deux bornes traitent le même défaut par ses deux bouts, et l'une sans
-// l'autre ne fait que le déplacer. Sans plancher, une épaisseur mise à l'échelle
-// passe sous le pixel au dézoom : l'antialiasing la mêle à ce qu'elle devait
-// séparer, et le contraste réel s'effondre bien avant la valeur calculée. Sans
-// plafond, une épaisseur fixe finit par occuper la forme entière — à 24 pixels
-// par case, les deux têtes livrées font 5,25 et 4,50 pixels, et deux pixels de
-// liseré n'en détachent plus rien : ils avalent la couleur, qui est le seul
-// signal d'appartenance à un camp.
+// l'autre ne fait que le déplacer. Sans plancher, une épaisseur déclarée fine
+// tombe à zéro pixel de planche — une unité n'en vaut qu'un demi — et le trait
+// disparaît au lieu de séparer. Sans plafond, une épaisseur forte finit par
+// occuper la forme entière : les deux têtes livrées font 7 et 6 pixels, et deux
+// pixels de liseré n'en détacheraient plus rien, ils avaleraient la couleur qui
+// est le seul signal d'appartenance à un camp.
+//
+// Le plancher est en pixels de **planche**, et c'est strictement plus fort qu'un
+// pixel d'écran : l'agrandissement étant entier, un pixel de planche en vaut
+// autant que le facteur.
 //
 // Le plafond porte sur la plus petite dimension du trait et non sur la case ni
 // sur la forme entière : c'est ce trait-là que le contour doit laisser voir, et
@@ -375,47 +382,78 @@ const (
 	MaxStrokeRatio  = 6
 )
 
-// MinRenderScale est le rapport en dessous duquel le rendu ne garantit plus la
-// lisibilité des pions. Vaut 24 pixels par case.
+// La case rastérisée : 32 pixels de large, 16 de haut, pour les 64 et 32 unités
+// que le contrat fige.
 //
-// Le plancher est un minimum en pixels : il ne dépend pas de la taille du trait
-// mais de l'échelle, et finit donc par commander partout. En dessous d'un
-// quart, la bordure d'un pion l'emporte sur son remplissage — 47 % de noyau à
-// 16 pixels par case — et la couleur cesse de dire à quel camp il appartient.
+// Il n'y a pas d'échelle continue. Le rendu peint une planche à cette taille,
+// puis l'agrandit vers la fenêtre par un facteur **entier** : les pixels par
+// case sont la suite 32, 64, 96, jamais un intervalle. Ce qui varie avec la
+// fenêtre est le nombre de cases visibles, pas le grain.
 //
-// La vue isométrique ne cherche pas à montrer le plateau entier : elle garde
-// une échelle de travail et défile en suivant le jeu, la vue d'ensemble étant
-// portée par la carte à plat affichée à côté d'elle. Ce plancher n'est donc pas
-// un compromis d'affichage mais un garde-fou : l'échelle est bornée par le haut
-// bien avant de l'atteindre, et il ne se déclenche pas en jeu normal.
+// 32 et non 64, qui serait exact aussi : le champ du pion sélectionné fait
+// 2r+1 = 17 cases, soit Span(17) à tenir dans l'aire de monde. À 64, il
+// demanderait 1088 pixels, donc une fenêtre plancher d'au moins 1416 avec le
+// panneau, et le premier agrandissement n'arriverait qu'au-delà de 2832.
 //
-// La borne haute est le champ du pion sélectionné, que la vue doit contenir en
-// entier : Span(2*portée+1) donne la place qu'il demande. Elle vaut 55 pixels
-// par case dans le pire cas prévu — une fenêtre de 1280 sur le plus grand
-// préréglage —, soit le double du plancher.
-//
-// Cette portée est la portée **nominale** du préréglage, jamais celle du tour
-// en cours. Une capacité qui double la vue ferait sinon tomber le plafond de
-// près de la moitié. La chute vaut exactement 2r/(4r+1), Span étant linéaire en
-// cases : 47 % sur le plus petit préréglage, 48 % sur les deux autres, et elle ne
-// dépend ni de la fenêtre ni de la dimension qui contraint. Elle
-// dézoomerait donc tout le plateau au moment du déclenchement pour
-// le rezoomer au tour suivant : une caméra qui bouge seule quand on active une
-// capacité est déroutante, et c'est la carte à plat qui montre ce que la vue
-// isométrique ne peut plus contenir.
-const MinRenderScale = 0.375
+// 32 et non 48 : c'est le seul palier où toute épaisseur du contrat tombe
+// juste. Une unité valant un demi-pixel, un contour de 1 unité atteint le
+// plancher d'un pixel, le liseré de 2 en fait un, et les remplissages que le
+// contrat publie se retrouvent sans règle d'arrondi — tête du fugitif 7 pixels
+// sur 11, celle de l'inspecteur 6 sur 10. À 48, chaque épaisseur tombe sur un
+// demi-pixel et l'arrondi déciderait seul.
+const (
+	RasterTileWidth  = TileWidth / 2
+	RasterTileHeight = TileHeight / 2
+)
 
-// StrokeWidth donne l'épaisseur d'un trait à l'écran, en pixels.
+// Le plancher de la surface, en points, sous lequel la fenêtre ne descend pas.
 //
-// unites est l'épaisseur déclarée, echelle le rapport entre la case rendue et
-// ses 64 pixels nominaux, minForme la plus petite dimension de la forme en
-// unités de contrat.
-func StrokeWidth(unites int, echelle float64, minForme int) float64 {
-	e := float64(unites) * echelle
-	if plafond := float64(minForme) * echelle / MaxStrokeRatio; e > plafond {
+// En points et non en pixels : la fenêtre s'ouvre à cette taille quelle que soit
+// la densité de l'écran, donc le jeu occupe la même surface visible partout et
+// l'agrandissement suit le facteur du moniteur — un sur un écran ordinaire, deux
+// à 150 %. En dessous de ce plancher, l'image est rognée et centrée, jamais
+// réduite.
+//
+// Ce qu'il doit contenir est l'aire de monde, panneau déduit : Span(17) en
+// pixels rastérisés, soit 544 sur 272, contre 632 sur 540 disponibles une fois
+// retirées les 328 du panneau. C'est la largeur qui commande, et il reste 88
+// pixels de marge.
+//
+// La garantie en découle et se simplifie : la surface valant toujours au moins
+// ce plancher, un champ qui tient ici tient à toute taille de fenêtre. Un seul
+// contrôle au montage remplace donc tout calcul de plafond par fenêtre.
+const (
+	MinSurfaceWidth  = 960
+	MinSurfaceHeight = 540
+)
+
+// StrokeWidth donne l'épaisseur d'un trait en pixels de planche.
+//
+// unites est l'épaisseur déclarée, minForme la plus petite dimension de la forme,
+// les deux en unités de contrat. Aucune échelle n'entre ici : l'agrandissement
+// étant entier, une épaisseur juste sur la planche l'est à tous les facteurs, et
+// le contrat se vérifie donc une fois pour toutes à cette taille.
+//
+// Le calcul reste entier de bout en bout. Un flottant dans le chemin de rendu
+// rendrait l'image dépendante d'un arrondi que rien ne fixe, et l'arrondi est
+// ici écrit : au supérieur pour le plancher, par troncature pour le plafond. Un
+// liseré qui disparaît coûte plus cher qu'un liseré d'un pixel de trop.
+func StrokeWidth(unites, minForme int) int {
+	e := (unites*RasterTileWidth + TileWidth - 1) / TileWidth
+	if plafond := minForme * RasterTileWidth / (TileWidth * MaxStrokeRatio); e > plafond {
 		e = plafond
 	}
 	return max(e, MinStrokePixels)
+}
+
+// StrokeUnits donne la même épaisseur, ramenée en unités de contrat.
+//
+// Pour ce qui dessine en géométrie déclarative plutôt qu'en pixels — l'aperçu
+// SVG. Il montre ainsi l'épaisseur que le rendu produira, bornes comprises, au
+// lieu de la recalculer dans son unité et de dériver de lui sans que rien ne le
+// signale.
+func StrokeUnits(unites, minForme int) int {
+	return StrokeWidth(unites, minForme) * TileWidth / RasterTileWidth
 }
 
 // GroundGrainAmplitude est l'écart appliqué au sol, en niveaux de luminance sur

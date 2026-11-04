@@ -33,10 +33,18 @@ publié, et explique les conventions du dépôt à qui y contribue.
 Le jeu s'appelle désormais Evasion, et aucun numéro de contrat ne bouge : rien à
 reprendre dans un plugin ni dans un bot.
 
+Les bornes d'épaisseur d'un contour se comptent en pixels de planche, où une
+unité de contrat vaut un demi-pixel : un contour épais est borné plus tôt
+qu'avant, et `evasion preview` le montre. Aucune forme déclarée ne change.
+
 ***
 
 The game is now called Evasion, and no contract number changes: nothing to
 revisit in a plugin or a bot.
+
+Outline thickness bounds are counted in sheet pixels, where one contract unit is
+half a pixel: a thick outline is capped sooner than before, and `evasion preview`
+shows it. No declared shape changes.
 
 ## [0.6.3] — 2026-08-29 — La relecture du diff
 

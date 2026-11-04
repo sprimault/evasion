@@ -179,17 +179,36 @@ faire, et on a besoin des deux en même temps.
   déjà. **La carte de croyance de l'IA s'y ajoute à l'étape 9** : rien ne la
   produit avant, et l'étape 7 livre donc la carte sans elle.
 
-**L'échelle isométrique est un intervalle fermé, fixé par la règle et non par le
-confort.** Par le bas, `MinRenderScale`. Par le haut, la vue doit contenir en
+**L'échelle isométrique n'est pas un intervalle mais une suite de paliers.** Le
+rendu peint une planche à `RasterTileWidth` — 32 pixels par case — puis
+l'agrandit vers la fenêtre par un facteur **entier** : les pixels par case valent
+32, 64, 96, et rien entre les deux. Ce qui varie continûment avec la fenêtre est
+le nombre de cases visibles, pas le grain.
+
+Le facteur se calcule sur le **plancher** de surface, `MinSurfaceWidth` sur
+`MinSurfaceHeight`, soit 960 sur 540 points, et non sur la surface courante. En
+points et non en pixels : la fenêtre s'ouvre à la même surface visible quelle que
+soit la densité de l'écran, donc l'agrandissement suit le facteur du moniteur —
+un sur un écran ordinaire, deux à 150 %. Un jeu qu'on veut plus grand à
+l'ouverture demande une planche plus grande, jamais une fenêtre plus grande.
+
+**Et la garantie se simplifie au lieu de se perdre.** La vue doit contenir en
 entier le champ du pion sélectionné — `Span(2*portée+1)` donne la place qu'il
-demande. Le pire cas prévu, une fenêtre de 1280 sur le plus grand préréglage,
-donne 55 pixels par case : le plafond commande partout et le plancher ne se
-déclenche jamais en jeu normal.
+demande, soit 544 sur 272 pixels de planche au plus grand préréglage. Comme la
+surface vaut toujours au moins le plancher, **un champ qui tient au plancher
+tient à toute taille de fenêtre** : un contrôle unique au montage remplace tout
+calcul de plafond par fenêtre.
+
+Ce contrôle porte sur l'**aire de monde** et non sur la surface : le panneau
+latéral en retire sa largeur, et l'aire reçoit 632 sur 540 là où le champ en
+demande 544 sur 272. Les confondre décalerait le cadrage sans qu'aucune erreur
+ne le dise.
 
 La portée qui entre dans ce calcul est celle du **préréglage**, pas celle du
-tour. Une capacité qui double la vue ferait autrement sauter l'échelle de près de
-la moitié à son déclenchement — la chute vaut `2r/(4r+1)`, soit 47 % sur le plus
-petit préréglage et 48 % sur les deux autres —, puis la rendrait au tour suivant.
+tour. Une capacité qui double la vue ferait autrement sauter le cadrage à son
+déclenchement, puis le rendrait au tour suivant — une caméra qui bouge seule
+quand on active une capacité est déroutante, et c'est la carte à plat qui montre
+ce que l'isométrique ne peut plus contenir.
 
 **La garantie porte sur le pion sélectionné, pas sur tous.** Un inspecteur au
 bord du panneau a sa ligne de vue tronquée à l'écran, et à cinq pions dispersés
