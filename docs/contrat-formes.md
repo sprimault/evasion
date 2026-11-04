@@ -251,19 +251,35 @@ C'est de l'éclairage et non une couleur de plugin, au même titre que les
 coefficients de faces. Une palette qui pourrait le déplacer pourrait rendre les
 pions illisibles, ce que le liseré existe précisément pour empêcher.
 
-**Toute épaisseur de contour est encadrée par deux bornes**, celle d'un plugin
-comme le liseré du moteur : jamais moins d'**un pixel d'écran**, jamais plus
-d'**un sixième de la plus petite dimension de la forme**. Entre les deux, elle
-suit le zoom comme le reste de la géométrie.
+### À quelle taille les formes sont peintes
 
-Les deux bornes traitent le même défaut par ses deux bouts. Sans plancher, une
-épaisseur mise à l'échelle passe sous le pixel au dézoom : l'antialiasing la mêle
-à ce qu'elle devait séparer, et le contraste réel s'effondre bien avant la valeur
-calculée — or c'est au plateau entier qu'on cherche où sont les pions. Sans
-plafond, une épaisseur fixe finit par occuper la forme entière : à 24 pixels par
-case, les deux têtes livrées en font 5,25 et 4,50, et deux pixels de liseré n'en
-détachent plus rien. Ils avalent la couleur, qui est le seul signal
+**Une case est peinte sur 32 pixels de large et 16 de haut**, pour les 64 et 32
+unités que le §1 fige : une unité vaut un demi-pixel. Cette planche est ensuite
+agrandie vers la fenêtre par un **facteur entier**, donc les pixels par case sont
+la suite 32, 64, 96, et jamais un intervalle. Ce qui varie avec la fenêtre est le
+nombre de cases visibles, pas le grain.
+
+Rien de tout cela n'est déclarable, et un plugin n'a pas à en tenir compte : il
+écrit de la géométrie en unités de contrat. Mais les deux conséquences qui
+suivent sont ce qui rend ses formes lisibles ou non.
+
+**Toute épaisseur de contour est encadrée par deux bornes**, celle d'un plugin
+comme le liseré que le jeu pose : jamais moins d'**un pixel de planche**, jamais
+plus d'**un sixième de la plus petite dimension de la forme**.
+
+Les deux bornes traitent le même défaut par ses deux bouts. Sans plancher, un
+contour d'une unité tomberait à un demi-pixel, c'est-à-dire à rien : le trait
+disparaîtrait au lieu de séparer, et c'est au plateau entier qu'on cherche où
+sont les pions. Sans plafond, une épaisseur forte finirait par occuper la forme
+entière : les deux têtes livrées font 7 et 6 pixels, et deux pixels de liseré n'y
+détacheraient plus rien. Ils avalent la couleur, qui est le seul signal
 d'appartenance à un camp.
+
+Le plancher en pixels de planche est **strictement plus fort** qu'un plancher en
+pixels d'écran, qui était la clause précédente : un pixel de planche en vaut
+autant que le facteur d'agrandissement. Et le plafond étant un **rapport**, il
+est invariant sous ce facteur. Tout le contrat se vérifie donc une fois, à la
+taille de la planche, et vaut à tous les paliers.
 
 Le plafond porte sur le trait et non sur la case ni sur la forme entière : c'est
 ce trait-là que le contour doit laisser voir, et un trait long et fin serait
@@ -281,32 +297,28 @@ non de la plus grande : il y a cinq inspecteurs sur le plateau contre un fugitif
 et c'est la forme la moins favorable qui décide de ce que le contrat peut
 promettre.
 
-| Pixels par case | Fugitif | Inspecteur |
-|---|---|---|
-| 64 | 64 % | 60 % |
-| 48 | 64 % | 60 % |
-| 32 | 64 % | 60 % |
-| 24 | 57 % | 53 % |
+| Pion | Remplissage |
+|---|---|
+| Fugitif | 64 % |
+| Inspecteur | 60 % |
+
+**Deux chiffres et non un tableau par échelle**, parce que l'agrandissement est
+entier : chaque pixel de planche devient un bloc de `f` sur `f`, donc le noyau et
+ses bordures grandissent du même facteur et la part ne bouge pas. Un pion n'est
+jamais mieux ni moins bien détaché sur un grand écran que sur un petit.
 
 La tête de l'inspecteur est passée de cinq à six unités de rayon pour cela : à
-cinq, elle tombait à 48 % au plancher, sous la moitié que cette section
-garantit — et le contrôle qui la gardait ne mesurait que le fugitif.
+cinq, elle tombait sous la moitié que cette section garantit — et le contrôle qui
+la gardait ne mesurait que le fugitif.
 
 **La propriété ne vaut que pour le rôle `piece`.** Un marqueur peut être plus
-fin que ses bordures — la trace l'est, à 27 % de son épaisseur à 24 pixels par
-case — et ce n'est pas un défaut : sa lisibilité vient précisément de ses
-bordures, et il ne porte aucune identité de camp.
+fin que ses bordures — la trace l'est — et ce n'est pas un défaut : sa lisibilité
+vient précisément de ses bordures, et il ne porte aucune identité de camp.
 
-**En dessous de 24 pixels par case, le rendu ne garantit plus rien.** Le
-plancher étant un minimum en pixels, il ne dépend pas de la taille du trait mais
-de l'échelle, et finit par commander partout : à 16 pixels par case, la tête
-d'un pion tombe à 47 % de remplissage. Le plateau entier tient dans 984 sur 492
-pixels à cette limite — la projection est en deux pour un — ; en dessous, la vue
-défile plutôt que de continuer à réduire.
-
-La marge est mince et il vaut mieux le savoir : le plus grand préréglage fait 41
-cases de côté, ce qui donne moins de cinquante pixels par case sur un écran de
-1920 de large, et une trentaine sur un 1280.
+**Il n'y a rien en dessous de la planche.** La question « que garantit le rendu à
+une échelle plus basse » ne se pose plus : 32 pixels par case est le palier le
+plus bas, et le facteur d'agrandissement est borné à un par le bas. Une fenêtre
+plus petite que le plancher rogne l'image, centrée, elle ne la réduit pas.
 
 Conséquence à connaître avant l'étape 7 : **le halo clair autour d'une pièce est
 désormais pris.** C'est la convention habituelle pour « sélectionné » ou

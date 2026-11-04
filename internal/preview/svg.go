@@ -36,11 +36,14 @@ func trait(s *strings.Builder, t render.Stroke, x, y, k float64, pal render.Pale
 	// ne repeignait cette bande — le liseré faisait alors trois unités au lieu
 	// de deux, six avec une épaisseur de quatre. Son épaisseur devenait pilotée
 	// par le plugin, ce que le contrat exclut.
+	// Les épaisseurs viennent du rendu, en unités de contrat, puis suivent k
+	// comme la géométrie : l'aperçu montre ce que le jeu produira, bornes
+	// comprises, au lieu de les recalculer dans son unité.
 	var epContour float64
 	if t.Outline != "" {
-		epContour = render.StrokeWidth(t.Outlined(), k, mini)
+		epContour = float64(render.StrokeUnits(t.Outlined(), mini)) * k
 	}
-	epLisere := render.StrokeWidth(render.RimWidth, k, mini)
+	epLisere := float64(render.StrokeUnits(render.RimWidth, mini)) * k
 
 	op := ""
 	if o := t.Opaque(); o < render.DefaultOpacity {

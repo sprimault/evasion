@@ -47,31 +47,57 @@ func TestSpanAgreesWithToScreen(t *testing.T) {
 	}
 }
 
-// TestStrokeWidthStaysWithinItsBounds vérifie le plancher et le plafond.
+// TestStrokeWidthStaysWithinItsBounds vérifie le plancher et le plafond, en
+// pixels de planche.
 //
-// Le plancher est ce qui empêche un trait de passer sous le pixel au dézoom, le
-// plafond ce qui l'empêche d'avaler la forme quand elle devient minuscule. Les
-// deux se contredisent sur une très petite forme, et c'est le plancher qui
-// l'emporte : mieux vaut un trait trop épais qu'un trait absent.
+// Le plancher est ce qui empêche un trait de tomber à zéro pixel — une unité
+// n'en vaut qu'un demi —, le plafond ce qui l'empêche d'avaler une forme
+// minuscule. Les deux se contredisent sur une très petite forme, et c'est le
+// plancher qui l'emporte : mieux vaut un trait trop épais qu'un trait absent.
+//
+// Aucune échelle n'entre dans les cas : l'agrandissement étant entier, ces
+// valeurs sont celles de tous les paliers.
 func TestStrokeWidthStaysWithinItsBounds(t *testing.T) {
 	cas := []struct {
 		nom      string
 		unites   int
-		echelle  float64
 		minForme int
-		attendu  float64
+		attendu  int
 	}{
-		{"taille nominale, sous le plafond", 2, 1, 14, 2},
-		{"demi-echelle", 2, 0.5, 14, 1},
-		{"plafond atteint", 8, 1, 24, 4},
-		{"plancher atteint", 1, 0.25, 14, 1},
-		{"plancher l'emporte sur le plafond", 2, 0.1, 6, 1},
+		{"liseré sur une tête de fugitif", RimWidth, 14, 1},
+		{"contour d'une unité, arrondi au supérieur", 1, 14, 1},
+		{"trait large sur une grande forme", 4, 40, 2},
+		{"plafond atteint", 8, 24, 2},
+		{"plancher l'emporte sur le plafond", RimWidth, 6, 1},
 	}
 
 	for _, c := range cas {
-		if got := StrokeWidth(c.unites, c.echelle, c.minForme); got != c.attendu {
-			t.Errorf("%s : StrokeWidth(%d, %g, %d) = %g, attendu %g",
-				c.nom, c.unites, c.echelle, c.minForme, got, c.attendu)
+		if got := StrokeWidth(c.unites, c.minForme); got != c.attendu {
+			t.Errorf("%s : StrokeWidth(%d, %d) = %d, attendu %d",
+				c.nom, c.unites, c.minForme, got, c.attendu)
+		}
+	}
+}
+
+// TestStrokeUnitsConvertsBackToTheSamePixels vérifie que les deux unités ne
+// divergent pas, par l'aller-retour.
+//
+// C'est la seule garantie qui compte ici : l'aperçu dessine en géométrie et le
+// rendu en pixels de planche. Une épaisseur convertie qui ne reviendrait pas sur
+// ses pixels ferait montrer à l'aperçu autre chose que le jeu, et c'est
+// précisément ce que l'aperçu existe pour éviter.
+//
+// L'aller-retour plutôt que la formule recopiée : comparer StrokeUnits au calcul
+// qu'elle fait elle-même ne peut pas échouer.
+func TestStrokeUnitsConvertsBackToTheSamePixels(t *testing.T) {
+	for _, unites := range []int{1, RimWidth, 3, 4, 8} {
+		for _, minForme := range []int{6, 14, 24, 40} {
+			unitesRendues := StrokeUnits(unites, minForme)
+			if retour := unitesRendues * RasterTileWidth / TileWidth; retour != StrokeWidth(unites, minForme) {
+				t.Errorf("StrokeUnits(%d, %d) = %d unités, qui reviennent à %d pixels "+
+					"au lieu de %d", unites, minForme, unitesRendues, retour,
+					StrokeWidth(unites, minForme))
+			}
 		}
 	}
 }
