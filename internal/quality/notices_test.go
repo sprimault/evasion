@@ -195,10 +195,82 @@ func listerPour(c cible, vus map[string]module) error {
 			chemin:  champs[0],
 			version: champs[1],
 			dossier: champs[2],
-			origine: "https://" + champs[0],
+			origine: origineDe(champs[0]),
 		}
 	}
 	return nil
+}
+
+// origineDe rend l'adresse du dépôt d'un module, suffixe de version majeure
+// retiré.
+//
+// Un module porte son majeur dans son chemin depuis la v2, et ce segment n'est
+// pas un répertoire du dépôt : « https://github.com/santhosh-tekuri/jsonschema/v6 »
+// ne mène nulle part, alors que le chemin, lui, reste l'identité du module et
+// s'écrit tel quel sur la ligne au-dessus.
+//
+// Dérivé du chemin et non du champ `Origin.URL` de « go list -m -json », qui
+// porte l'adresse exacte — jusqu'à « go.googlesource.com » pour les paquets
+// `golang.org/x` — mais disparaît sous `GOPROXY=off`. L'adresse écrite
+// dépendrait alors du réseau de la machine qui régénère, et ce fichier est
+// comparé caractère pour caractère.
+func origineDe(chemin string) string {
+	if i := strings.LastIndex(chemin, "/"); i > 0 && estSuffixeDeMajeur(chemin[i+1:]) {
+		chemin = chemin[:i]
+	}
+	return "https://" + chemin
+}
+
+// estSuffixeDeMajeur distingue un « /v2 » de version d'un répertoire qui en
+// aurait l'air.
+//
+// La forme est fixée par le versionnement des modules : « v » suivi d'un entier
+// sans zéro initial, à partir de 2. Un module en v1 n'a pas de suffixe, donc un
+// segment « v1 » est un vrai répertoire, et les chemins à la mode de
+// `gopkg.in/yaml.v3` ne sont pas concernés — leur majeur n'est pas un segment.
+func estSuffixeDeMajeur(segment string) bool {
+	if len(segment) < 2 || segment[0] != 'v' || segment[1] == '0' || segment == "v1" {
+		return false
+	}
+	for _, c := range segment[1:] {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// TestRepositoryURLDropsTheMajorSuffix éprouve l'adresse écrite pour un module
+// dont le chemin porte un majeur.
+//
+// Aucune dépendance liée au binaire n'en porte aujourd'hui, donc rien d'autre ne
+// peut voir le défaut : il n'apparaîtrait que dans l'archive d'une version qui
+// lie une telle dépendance, et une adresse qui ne mène nulle part ne remplit pas
+// l'obligation pour laquelle la notice est écrite. Deux des dépendances admises
+// par docs/go.md en ont un.
+func TestRepositoryURLDropsTheMajorSuffix(t *testing.T) {
+	cas := []struct {
+		chemin, attendu string
+	}{
+		{"github.com/santhosh-tekuri/jsonschema/v6", "https://github.com/santhosh-tekuri/jsonschema"},
+		{"github.com/tetratelabs/wazero/v12", "https://github.com/tetratelabs/wazero"},
+		{"github.com/BurntSushi/toml", "https://github.com/BurntSushi/toml"},
+		{"golang.org/x/text", "https://golang.org/x/text"},
+		{"modernc.org/sqlite", "https://modernc.org/sqlite"},
+
+		// Trois segments qui en ont l'air sans l'être : un module en v1 n'a pas
+		// de suffixe, un majeur à zéro initial ne s'écrit pas, et gopkg.in porte
+		// le sien dans le dernier segment plutôt qu'à côté.
+		{"example.com/outil/v1", "https://example.com/outil/v1"},
+		{"example.com/outil/v02", "https://example.com/outil/v02"},
+		{"gopkg.in/yaml.v3", "https://gopkg.in/yaml.v3"},
+	}
+
+	for _, c := range cas {
+		if obtenu := origineDe(c.chemin); obtenu != c.attendu {
+			t.Errorf("origine de %s : %s, attendu %s", c.chemin, obtenu, c.attendu)
+		}
+	}
 }
 
 // TestNoticeTargetsMatchTheWorkflow vérifie que les cibles interrogées sont
