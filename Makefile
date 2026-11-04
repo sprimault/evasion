@@ -13,7 +13,7 @@ SORTIE    ?= .tmp
 # directement perd ces variables, et l'échec est intermittent.
 -include makefile.local
 
-.PHONY: build run test race lint vulncheck sec cover binaries clean tools
+.PHONY: build run test race lint vulncheck sec notices deps cover binary binaries clean tools
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(SORTIE)/$(BINAIRE) ./cmd/evasion
@@ -65,6 +65,18 @@ sec:
 # réécrire, et son diff se relit comme le reste.
 notices:
 	go test -run TestThirdPartyNoticesAreCurrent ./internal/quality/ -maj-notices
+
+# Le retard d'une version ne rougit nulle part, et c'est voulu : seul un avis de
+# govulncheck commande un relevage. Cette cible dit ce qui est disponible, pour
+# que le savoir coûte moins que de le chercher.
+#
+# Restreinte aux modules qu'un paquet du dépôt atteint, tests compris. Le graphe
+# complet porte aussi les dépendances de développement de nos dépendances, que
+# `go mod why` déclare inutiles et qu'on ne pourrait relever qu'en les exigeant.
+deps:
+	@echo "Versions disponibles pour les modules que le code atteint :"
+	@go list -m -u -f '{{with .Update}}{{$$.Path}} {{$$.Version}} -> {{.Version}}{{end}}' \
+	  $$(go list -deps -test -f '{{with .Module}}{{.Path}}{{end}}' ./... | sort -u)
 
 cover:
 	go test -coverprofile=$(SORTIE)/couverture.out ./...
