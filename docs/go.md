@@ -40,6 +40,20 @@ Ce n'est pas une porte dérobée pour élargir la liste du dessus : une dépenda
 importée par un seul `_test.go` aujourd'hui et par du code demain change de
 catégorie, et repasse par la question complète.
 
+**Un relevage se décide sur `govulncheck`, pas sur un numéro qui vieillit** : il
+tourne aux contrôles de publication, en intégration continue et à un rendez-vous
+quotidien, et il juge ce que le code atteint plutôt que l'écart au dernier tag.
+Deux outils l'entourent sans rien relever — un contrôle de `internal/quality`
+compare `go.mod` et `go.sum` à ce que `go mod tidy` produirait, puisque `gofmt`
+ignore l'un et que le lint ne lit pas le graphe des modules ; et `make deps` dit
+quelles versions sont disponibles parmi les modules qu'un paquet du dépôt
+atteint, tests compris.
+
+**Pas de robot de mise à jour**, et c'est un choix : sa proposition arriverait
+sans le message bilingue qu'une livraison demande, donc entièrement à réécrire,
+pour un retard que nul avis ne vise. Une version se reprend quand on touche au
+module, ou quand `make deps` montre un écart qui vaut le geste.
+
 ## 2. cgo n'est pas uniforme, et c'est la seule entorse
 
 | Cible | `CGO_ENABLED` |
